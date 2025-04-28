@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         IMAGE_NAME = "cloudchuck/myapplication"
-        IMAGE_TAG = "${env.BUILD_NUMBER}"  // Assuming same build number
+        IMAGE_TAG = "latest"
     }
 
     stages {
