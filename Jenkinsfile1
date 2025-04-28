@@ -2,41 +2,40 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "cloudchuck/myapplication"
-        IMAGE_TAG = "latest"
+        DOCKER_HUB_CREDENTIALS = credentials('dockerhub_id') // DockerHub username/password from Jenkins credentials
+        DOCKER_HUB_USER = "${DOCKER_HUB_CREDENTIALS_USR}"     // Dynamic Username
+        REPO_NAME = "myapplication"
+        IMAGE_NAME = "${DOCKER_HUB_USER}/${REPO_NAME}"
+        IMAGE_TAG = "latest"                                 // Always deploy the latest image
+        CONTAINER_NAME = "springbootapp"                     // Running container name
+        APP_PORT = "2222"                                    // Host port (can also be made dynamic if needed)
     }
 
     stages {
         stage('Pull Docker Image') {
             steps {
-                script {
-                    sh "docker pull ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-                }
+                sh "docker pull ${IMAGE_NAME}:${IMAGE_TAG}"
             }
         }
 
         stage('Stop and Remove Existing Container') {
             steps {
-                script {
-                    sh "docker rm -f devopsexample || true"
-                }
+                sh "docker rm -f ${CONTAINER_NAME} || true"
             }
         }
 
         stage('Run New Docker Container') {
             steps {
-                script {
-                    sh """
-                        docker run --name devopsexample -d -p 2222:2222 ${env.IMAGE_NAME}:${env.IMAGE_TAG}
-                    """
-                }
+                sh """
+                    docker run --name ${CONTAINER_NAME} -d -p ${APP_PORT}:${APP_PORT} ${IMAGE_NAME}:${IMAGE_TAG}
+                """
             }
         }
 
         stage('Deployment Completion') {
             steps {
                 echo "----------------------------------------------------"
-                echo "Application deployed successfully at: http://server-ip:2222"
+                echo "Application deployed successfully at: http://<your-server-ip>:${APP_PORT}"
                 echo "----------------------------------------------------"
             }
         }
