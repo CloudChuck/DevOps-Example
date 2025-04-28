@@ -1,0 +1,44 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "cloudchuck/myapplication"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"  // Assuming same build number
+    }
+
+    stages {
+        stage('Pull Docker Image') {
+            steps {
+                script {
+                    sh "docker pull ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Stop and Remove Existing Container') {
+            steps {
+                script {
+                    sh "docker rm -f devopsexample || true"
+                }
+            }
+        }
+
+        stage('Run New Docker Container') {
+            steps {
+                script {
+                    sh """
+                        docker run --name devopsexample -d -p 2222:2222 ${env.IMAGE_NAME}:${env.IMAGE_TAG}
+                    """
+                }
+            }
+        }
+
+        stage('Deployment Completion') {
+            steps {
+                echo "----------------------------------------------------"
+                echo "Application deployed successfully at: http://server-ip:2222"
+                echo "----------------------------------------------------"
+            }
+        }
+    }
+}
