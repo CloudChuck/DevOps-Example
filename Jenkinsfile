@@ -1,47 +1,61 @@
-node {
-    // reference to maven
-    // ** NOTE: This 'maven-3.5.2' Maven tool must be configured in the Jenkins Global Configuration.   
-    def mvnHome = tool 'maven-3.5.2'
+pipeline {
+    agent any
 
-    // holds reference to docker image
-    def dockerImage
-    // ip address of the docker private repository(nexus)
- 
-    def dockerImageTag = "devopsexample${env.BUILD_NUMBER}"
-    
-    stage('Clone Repo') { // for display purposes
-      // Get some code from a GitHub repository
-      git 'https://github.com/CloudChuck/DevOps-Example.git'
-      // Get the Maven tool.
-      // ** NOTE: This 'maven-3.5.2' Maven tool must be configured
-      // **       in the global configuration.           
-      mvnHome = tool 'maven-3.5.2'
-    }    
-  
-    stage('Build Project') {
-      // build project via maven
-      sh "'${mvnHome}/bin/mvn' clean install"
+    environment {
+        // Avoid hardcoded secrets, use Jenkins credentials plugin
+        DOCKER_HUB_CREDENTIALS = credentials('dockerhub_id') // Set this in Jenkins
+        IMAGE_NAME = "cloudchuck/myapplication"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
-		
-    stage('Build Docker Image') {
-      // build docker image
-      dockerImage = docker.build("devopsexample:${env.BUILD_NUMBER}")
+
+    tools {
+        maven 'maven-3.5.2'
     }
-   	  
-    stage('Deploy Docker Image and login'){
-      
-      echo "Docker Image Tag Name: ${dockerImageTag}"
-	  
-        sh "docker images"
-        sh "docker login -u cloudchuck -p Mr.chuck@123" // put PWD
-	
-}
-    stage('Docker push'){
-       // docker images | awk '{print $3}' | awk 'NR==2'
-	// sh "docker images | awk '{print $3}' | awk 'NR==2'"
-	//sh echo "Enter the docker lattest imageID"
-	//sh "read imageid"
-	   sh "docker tag 1c332dc7dfd7  cloudchuck/myapplication" //must change your name and tag no
-        sh "docker push   cloudchuck/myapplication"
-  }
+
+    stages {
+        stage('Clone Repo') {
+            steps {
+                git 'https://github.com/CloudChuck/DevOps-Example.git'
+            }
+        }
+
+        stage('Build Project') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build("${env.IMAGE_NAME}:${env.IMAGE_TAG}")
+                }
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                script {
+                    sh "echo ${DOCKER_HUB_CREDENTIALS_PSW} | docker login -u ${DOCKER_HUB_CREDENTIALS_USR} --password-stdin"
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    // Push image with tag and also tag as latest
+                    sh "docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.IMAGE_NAME}:latest"
+                    sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                    sh "docker push ${env.IMAGE_NAME}:latest"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker logout'
+        }
+    }
 }
